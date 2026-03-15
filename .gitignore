@@ -10,7 +10,6 @@ build/
 mnist_data/
 checkpoints/
 runs/
-samples.png
 
 # Jupyter
 .ipynb_checkpoints/
