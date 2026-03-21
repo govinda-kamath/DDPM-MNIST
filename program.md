@@ -1,0 +1,53 @@
+# AutoResearch Program: DDPM-MNIST
+
+## Goal
+
+Minimize the MSE training loss (noise prediction error) on MNIST.
+The metric is the **average loss of the final epoch** in a short fixed-length training run.
+Lower is better.
+
+## Current Baseline Architecture
+
+- **Model**: `SmallUNet` — sinusoidal time embeddings, GroupNorm, ResBlocks, stride-2 downsampling, nearest-neighbor upsample, skip connections
+  - `base_channels=16`, `time_emb_dim=64`, ~80k parameters
+- **Noise schedule**: Linear β schedule, β₁=1e-4 → β_T=0.02, T=1000 steps
+- **Loss**: Simple MSE on predicted noise ε
+- **Optimizer**: Adam, cosine decay lr=2e-4→0 over all steps (loss: 0.0311)
+- **Batch size**: 128
+
+## Research Directions
+
+Explore these roughly in order of expected impact:
+
+### 1. Noise Schedule
+- ✗ FAILED **Cosine schedule** (tried twice): initially helped (0.1166→0.0791) but at the current stronger baseline (0.0340) it regressed to 0.0528 (+0.0188). Linear β schedule is better for this model/dataset combination at this loss level — cosine likely over-smooths SNR distribution for 28×28 MNIST. Direction exhausted.
+
+### 2. Model Capacity
+- ✗ FAILED **base_channels 16→32** (crash/timeout): ~4x parameter count likely exceeded memory or time budget; skip 64 as well
+- Add self-attention at the bottleneck (spatial 7×7 or 14×14 feature map) — targeted capacity boost without full model scaling
+- Deeper time embedding MLP (extra hidden layer) — low parameter cost, worth trying
+- Additional ResBlock in the encoder or decoder path
+
+### 3. Optimizer & Learning Rate
+- **AdamW** with weight decay 1e-4 (better regularization than Adam)
+- ✓ KEPT **Cosine LR decay** (0.0340→0.0311, −0.0029): `optax.cosine_decay_schedule` from lr=2e-4 to 0 over all steps. Helps converge faster within short training run.
+  - Follow-on: **Warmup + cosine decay** (100-step linear warmup then cosine) — may improve early stability further
+  - Follow-on: **AdamW + cosine decay** combined — regularization and schedule together
+- Slightly higher lr (4e-4) with cosine decay — small models can often train faster with higher lr
+
+### 4. Loss Formulation
+- **SNR-weighted loss**: weight each step by min(SNR, 5) / SNR (Hang et al. 2023). Lower priority now that cosine schedule is ruled out; still worth trying with linear schedule.
+- **v-prediction** parameterization instead of ε-prediction: model predicts v = √ᾱ·ε − √(1−ᾱ)·x₀
+
+### 5. Training Tricks
+- **Gradient clipping** (e.g. global norm ≤ 1.0) — can stabilize early training
+- Larger batch size (256 or 512) if memory allows
+
+## Strategy Notes
+
+- Make **exactly ONE change** per experiment — isolated, testable hypotheses only
+- Changes that improve convergence speed are especially valuable (eval uses few epochs)
+- If a direction has been tried and failed twice, move on
+- If a direction succeeded, consider pushing it further (e.g., if attention at bottleneck helped, try adding it at an earlier resolution)
+- Keep the existing CLI interface intact (don't remove argparse arguments)
+- Ensure the code imports remain valid and `sample.py` stays compatible with `ddpm_lib.py`
