@@ -49,6 +49,8 @@ MNIST_URL = "https://storage.googleapis.com/cvdf-datasets/mnist/"
 FILES = {
     "train_images": "train-images-idx3-ubyte.gz",
     "train_labels": "train-labels-idx1-ubyte.gz",
+    "test_images":  "t10k-images-idx3-ubyte.gz",
+    "test_labels":  "t10k-labels-idx1-ubyte.gz",
 }
 
 def download_mnist(data_dir):
@@ -59,12 +61,17 @@ def download_mnist(data_dir):
             print(f"Downloading {fname}...")
             urllib.request.urlretrieve(MNIST_URL + fname, fpath)
 
-def load_mnist(data_dir):
-    download_mnist(data_dir)
-    with gzip.open(os.path.join(data_dir, FILES["train_images"]), "rb") as f:
+def _load_images(gz_path):
+    with gzip.open(gz_path, "rb") as f:
         _, n, h, w = struct.unpack(">IIII", f.read(16))
         imgs = np.frombuffer(f.read(n * h * w), dtype=np.uint8).reshape(n, h, w)
-    imgs = imgs.astype(np.float32) / 255.0 * 2.0 - 1.0
+    return imgs.astype(np.float32) / 255.0 * 2.0 - 1.0
+
+def load_mnist(data_dir):
+    download_mnist(data_dir)
+    train = _load_images(os.path.join(data_dir, FILES["train_images"]))
+    test  = _load_images(os.path.join(data_dir, FILES["test_images"]))
+    imgs  = np.concatenate([train, test], axis=0)   # 70k total
     return imgs[:, None, :, :]
 
 def make_dataloader(images, batch_size, key):
