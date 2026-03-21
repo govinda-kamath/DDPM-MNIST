@@ -124,8 +124,9 @@ def run_eval(eval_epochs: int, timeout: int) -> tuple[float | None, str]:
     resume = BEST_CKPT_PATH if os.path.exists(BEST_CKPT_PATH) else None
     loss, output = _run_training(eval_epochs, timeout, resume)
 
-    if loss is None and resume and "changed shape" in output:
-        print("[eval]  shape mismatch — building warm-start checkpoint")
+    ckpt_incompatible = ("changed shape", "TreePathError", "tree_deserialise", "treedef")
+    if loss is None and resume and any(s in output for s in ckpt_incompatible):
+        print("[eval]  checkpoint incompatible (structure or shape change) — building warm-start checkpoint")
         if _make_warm_checkpoint():
             loss, output = _run_training(eval_epochs, timeout, WARM_CKPT_PATH)
         else:
@@ -179,9 +180,9 @@ def read_experiment_log(log_file: str, last_n: int = 6) -> str:
     lines = []
     for e in entries:
         status   = "KEPT    " if e.get("kept") else "REVERTED"
-        new_loss = f"{e['new_loss']:.4f}" if e.get("new_loss") is not None else "FAIL"
+        new_loss = f"{e['new_loss']:.8g}" if e.get("new_loss") is not None else "FAIL"
         lines.append(
-            f"  [{status}] baseline={e['baseline_loss']:.4f} → new={new_loss}"
+            f"  [{status}] baseline={e['baseline_loss']:.8g} → new={new_loss}"
             f"  | {e.get('description', '')[:80]}"
         )
     return "\n".join(lines)
@@ -200,7 +201,7 @@ You are an autonomous ML researcher running experiments on a DDPM \
 {program_md}
 
 ## Current Performance
-Baseline avg training loss (last epoch of a {eval_epochs}-epoch run): {current_loss:.4f}
+Baseline avg training loss (last epoch of a {eval_epochs}-epoch run): {current_loss:.8g}
 
 ## Experiment History (recent)
 {experiment_log}
@@ -253,8 +254,8 @@ def reconcile_program(description: str, kept: bool,
     """Ask Claude to update program.md based on the experiment outcome."""
     program_md  = read_file("program.md")
     outcome     = "KEPT" if kept else "REVERTED"
-    loss_str    = f"{new_loss:.4f}" if new_loss is not None else "FAILED (crash/timeout)"
-    delta_str   = (f"{baseline_loss - new_loss:+.4f}" if new_loss is not None else "n/a")
+    loss_str    = f"{new_loss:.8g}" if new_loss is not None else "FAILED (crash/timeout)"
+    delta_str   = (f"{baseline_loss - new_loss:+.8g}" if new_loss is not None else "n/a")
 
     prompt = f"""\
 You are maintaining a living research program for DDPM-MNIST experiments.
@@ -263,10 +264,10 @@ An experiment just completed. Update program.md to reflect what was learned.
 ## Experiment result
 - Change attempted : {description}
 - Outcome          : {outcome}
-- Baseline loss    : {baseline_loss:.4f}
+- Baseline loss    : {baseline_loss:.8g}
 - New loss         : {loss_str}
 - Delta            : {delta_str}
-- Running best     : {best_loss:.4f}
+- Running best     : {best_loss:.8g}
 
 ## Current program.md
 {program_md}
@@ -344,14 +345,14 @@ def main():
         print(baseline_out[-3000:])
         sys.exit(1)
     promote_checkpoint()
-    print(f"[init] Baseline loss: {baseline_loss:.4f}  (checkpoint saved to {BEST_CKPT_PATH})")
+    print(f"[init] Baseline loss: {baseline_loss:.8g}  (checkpoint saved to {BEST_CKPT_PATH})")
 
     best_loss = baseline_loss
 
     for i in range(args.n_experiments):
         bar = "=" * 64
         print(f"\n{bar}")
-        print(f"Experiment {i+1}/{args.n_experiments}   best so far: {best_loss:.4f}")
+        print(f"Experiment {i+1}/{args.n_experiments}   best so far: {best_loss:.8g}")
         print(bar)
 
         # Save current state
@@ -375,8 +376,8 @@ def main():
         if new_loss is not None:
             delta = best_loss - new_loss
             pct   = delta / best_loss * 100
-            print(f"[eval]  new={new_loss:.4f}  baseline={best_loss:.4f}  "
-                  f"delta={delta:+.4f} ({pct:+.1f}%)")
+            print(f"[eval]  new={new_loss:.8g}  baseline={best_loss:.8g}  "
+                  f"delta={delta:+.8g} ({pct:+.1f}%)")
         else:
             print(f"[eval]  FAILED  output tail:\n{new_out[-500:]}")
 
@@ -416,9 +417,9 @@ def main():
     print(f"\n{'='*64}")
     print("AutoResearch complete!")
     print(f"  Branch           : {branch}")
-    print(f"  Initial baseline : {baseline_loss:.4f}")
-    print(f"  Best achieved    : {best_loss:.4f}")
-    print(f"  Improvement      : {improvement:.4f}  ({improvement/baseline_loss*100:.1f}%)")
+    print(f"  Initial baseline : {baseline_loss:.8g}")
+    print(f"  Best achieved    : {best_loss:.8g}")
+    print(f"  Improvement      : {improvement:.8g}  ({improvement/baseline_loss*100:.1f}%)")
     print(f"  Log              : {args.log_file}")
 
     if args.merge_to:
