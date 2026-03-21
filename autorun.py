@@ -390,6 +390,8 @@ def main():
             promote_checkpoint()   # new weights become the starting point for next experiment
             if args.commit:
                 git_commit(f"autorun: {description}")
+                if args.merge_to:
+                    git_merge(branch, args.merge_to)
             best_loss = new_loss
         else:
             print("[drop]  No improvement — reverting")
@@ -427,7 +429,8 @@ def main():
         if not args.commit:
             print(f"  [warn] --merge-to requires --commit; skipping merge")
         else:
-            git_merge(branch, args.merge_to)
+            subprocess.run(["git", "checkout", args.merge_to], check=True)
+            print(f"  Merge-to branch  : {args.merge_to} (kept changes merged incrementally)")
 
     print(f"\n  Plot results with:")
     print(f"    python plot_experiments.py --log {args.log_file}")
