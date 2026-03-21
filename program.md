@@ -24,16 +24,19 @@ Explore these roughly in order of expected impact:
 
 ### 2. Model Capacity
 - ✗ FAILED **base_channels 16→32** (crash/timeout): ~4x parameter count likely exceeded memory or time budget; skip 64 as well
-- Add self-attention at the bottleneck (spatial 7×7 or 14×14 feature map) — targeted capacity boost without full model scaling
+- ✗ FAILED **Self-attention at bottleneck (14×14, 32ch, single-head)** (crash/timeout): adding `SelfAttention2d` at the bottleneck crashed; likely memory/compute overhead of attention on 14×14 maps (196 tokens) with 32 channels is too large for the budget. Try 7×7 spatial resolution instead if re-attempting.
 - Deeper time embedding MLP (extra hidden layer) — low parameter cost, worth trying
 - Additional ResBlock in the encoder or decoder path
 
 ### 3. Optimizer & Learning Rate
-- **AdamW** with weight decay 1e-4 (better regularization than Adam)
+- ✓ KEPT **AdamW weight_decay=1e-4** (0.0301→0.0295, −0.0006): modest but consistent gain; regularization helps even in short runs.
+  - Follow-on: **AdamW + warmup + cosine decay** combined — all three improvements stacked; highest-priority next experiment
+  - Follow-on: stronger weight decay (1e-3) — see if more regularization helps further
 - ✓ KEPT **Cosine LR decay** (0.0340→0.0311, −0.0029): `optax.cosine_decay_schedule` from lr=2e-4 to 0 over all steps. Helps converge faster within short training run.
-  - Follow-on: **Warmup + cosine decay** (100-step linear warmup then cosine) — may improve early stability further
-  - Follow-on: **AdamW + cosine decay** combined — regularization and schedule together
-- Slightly higher lr (4e-4) with cosine decay — small models can often train faster with higher lr
+- ✓ KEPT **Warmup + cosine decay** (0.0301→0.0289, −0.0012): 100-step linear warmup 0→2e-4 via `optax.join_schedules`, then cosine decay. Reduces early gradient instability.
+  - Follow-on: **AdamW + warmup + cosine** combined — stack weight decay on top of the now-proven warmup schedule
+  - Follow-on: longer warmup (200–500 steps) — may help further if 100 steps was still too short
+- Slightly higher lr (4e-4) with warmup + cosine — small models can often train faster with higher peak lr
 
 ### 4. Loss Formulation
 - **SNR-weighted loss**: weight each step by min(SNR, 5) / SNR (Hang et al. 2023). Lower priority now that cosine schedule is ruled out; still worth trying with linear schedule.

@@ -157,8 +157,15 @@ def main():
 
     steps_per_epoch = len(train_imgs) // args.batch_size
     total_steps     = args.epochs * steps_per_epoch
-    lr_schedule     = optax.cosine_decay_schedule(args.lr, total_steps)
-    optimizer  = optax.adam(lr_schedule)
+    warmup_steps    = 100
+    lr_schedule     = optax.join_schedules(
+        schedules=[
+            optax.linear_schedule(0.0, args.lr, warmup_steps),
+            optax.cosine_decay_schedule(args.lr, total_steps - warmup_steps),
+        ],
+        boundaries=[warmup_steps],
+    )
+    optimizer  = optax.adamw(lr_schedule, weight_decay=1e-4)
     opt_state  = optimizer.init(eqx.filter(model, eqx.is_array))
     train_step = make_train_step(optimizer, sched, T)
     key, loader_key = jax.random.split(key)
