@@ -71,8 +71,7 @@ def load_mnist(data_dir):
     download_mnist(data_dir)
     train = _load_images(os.path.join(data_dir, FILES["train_images"]))
     test  = _load_images(os.path.join(data_dir, FILES["test_images"]))
-    imgs  = np.concatenate([train, test], axis=0)   # 70k total
-    return imgs[:, None, :, :]
+    return train[:, None, :, :], test[:, None, :, :]  # (60k,1,28,28), (10k,1,28,28)
 
 def make_dataloader(images, batch_size, key):
     n          = len(images)
@@ -86,14 +85,14 @@ def make_dataloader(images, batch_size, key):
 
 # checkpointing
 
-def save_checkpoint(model, ckpt_dir, epoch, loss, is_best):
+def save_checkpoint(model, ckpt_dir, epoch, val_loss, is_best):
     os.makedirs(ckpt_dir, exist_ok=True)
     path = os.path.join(ckpt_dir, f"model_epoch{epoch:03d}.eqx")
     eqx.tree_serialise_leaves(path, model)
     if is_best:
         best_path = os.path.join(ckpt_dir, "model_best.eqx")
         eqx.tree_serialise_leaves(best_path, model)
-        print(f"   ** new best  loss={loss:.4f}  -> {best_path}")
+        print(f"   ** new best  val_loss={val_loss:.8g}  -> {best_path}")
     return path
 
 def prune_old_checkpoints(ckpt_dir, keep):
@@ -109,6 +108,26 @@ def load_checkpoint(path, template_model):
 
 
 # training
+
+def compute_val_loss(model, val_imgs, sched, T, batch_size, key):
+    """Compute mean MSE loss over the full validation set (no gradients)."""
+    @eqx.filter_jit
+    def val_batch(model, x0, t, key):
+        x_t, eps = q_sample(x0, t, sched, key)
+        eps_pred  = jax.vmap(model)(x_t, t)
+        return jnp.mean((eps_pred - eps) ** 2)
+
+    val_jnp    = jnp.array(val_imgs)
+    total_loss = 0.0
+    n_batches  = 0
+    for start in range(0, len(val_imgs) - batch_size + 1, batch_size):
+        x0 = val_jnp[start:start + batch_size]
+        key, t_key, q_key = jax.random.split(key, 3)
+        t = jax.random.randint(t_key, (batch_size,), 0, T)
+        total_loss += val_batch(model, x0, t, q_key).item()
+        n_batches  += 1
+    return total_loss / n_batches
+
 
 def make_train_step(optimizer, sched, T):
     def loss_fn(model, x0, t, key):
@@ -133,8 +152,8 @@ def main():
     args = get_args()
     print(f"JAX devices: {jax.devices()}")
 
-    train_imgs = load_mnist(args.data_dir)
-    print(f"Train: {train_imgs.shape}  [{train_imgs.min():.2f}, {train_imgs.max():.2f}]")
+    train_imgs, val_imgs = load_mnist(args.data_dir)
+    print(f"Train: {train_imgs.shape}  Val: {val_imgs.shape}")
 
     T     = 1000
     sched = make_noise_schedule(T)
@@ -192,14 +211,17 @@ def main():
                 avg = epoch_loss / (step + 1)
                 print(f"epoch {epoch+1:3d}  step {step+1:4d}/{steps_per_epoch}  loss {avg:.4f}")
 
-        avg_loss  = epoch_loss / steps_per_epoch
-        is_best   = avg_loss < best_loss
-        best_loss = min(best_loss, avg_loss)
+        avg_loss = epoch_loss / steps_per_epoch
+        key, val_key = jax.random.split(key)
+        val_loss  = compute_val_loss(model, val_imgs, sched, T, args.batch_size, val_key)
+        is_best   = val_loss < best_loss
+        best_loss = min(best_loss, val_loss)
 
-        writer.add_scalar("loss/epoch", avg_loss, epoch + 1)
-        print(f"── epoch {epoch+1:3d} done  avg loss {avg_loss:.4f}")
+        writer.add_scalar("loss/train_epoch", avg_loss, epoch + 1)
+        writer.add_scalar("loss/val",         val_loss, epoch + 1)
+        print(f"── epoch {epoch+1:3d} done  avg loss {avg_loss:.8g}  val loss {val_loss:.8g}")
 
-        save_checkpoint(model, args.ckpt_dir, epoch + 1, avg_loss, is_best)
+        save_checkpoint(model, args.ckpt_dir, epoch + 1, val_loss, is_best)
         prune_old_checkpoints(args.ckpt_dir, args.keep_ckpts)
 
         if (epoch + 1) % 5 == 0:

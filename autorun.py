@@ -106,7 +106,7 @@ def _run_training(eval_epochs: int, timeout: int,
             cwd=os.getcwd(), env=env
         )
         output = result.stdout + result.stderr
-        losses = re.findall(r"avg loss (\d+\.\d+)", output)
+        losses = re.findall(r"val loss (\S+)", output)
         return (float(losses[-1]) if losses else None), output
     except subprocess.TimeoutExpired:
         return None, "TIMEOUT"
@@ -201,7 +201,8 @@ You are an autonomous ML researcher running experiments on a DDPM \
 {program_md}
 
 ## Current Performance
-Baseline avg training loss (last epoch of a {eval_epochs}-epoch run): {current_loss:.8g}
+Baseline validation loss (last epoch of a {eval_epochs}-epoch run, 10k MNIST test set): {current_loss:.8g}
+The model is trained on the 60k MNIST training set; validation loss is computed on the held-out 10k test set.
 
 ## Experiment History (recent)
 {experiment_log}
@@ -264,10 +265,10 @@ An experiment just completed. Update program.md to reflect what was learned.
 ## Experiment result
 - Change attempted : {description}
 - Outcome          : {outcome}
-- Baseline loss    : {baseline_loss:.8g}
-- New loss         : {loss_str}
-- Delta            : {delta_str}
-- Running best     : {best_loss:.8g}
+- Baseline val loss : {baseline_loss:.8g}
+- New val loss      : {loss_str}
+- Delta             : {delta_str}
+- Running best      : {best_loss:.8g}
 
 ## Current program.md
 {program_md}
