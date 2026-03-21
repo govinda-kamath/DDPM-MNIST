@@ -155,11 +155,19 @@ def main():
     n_params = sum(x.size for x in jax.tree.leaves(eqx.filter(model, eqx.is_array)))
     print(f"Parameters: {n_params:,}")
 
-    optimizer  = optax.adam(args.lr)
+    steps_per_epoch = len(train_imgs) // args.batch_size
+    total_steps     = args.epochs * steps_per_epoch
+    warmup_steps    = 100
+    lr_schedule     = optax.join_schedules(
+        schedules=[
+            optax.linear_schedule(0.0, args.lr, warmup_steps),
+            optax.cosine_decay_schedule(args.lr, total_steps - warmup_steps),
+        ],
+        boundaries=[warmup_steps],
+    )
+    optimizer  = optax.adamw(lr_schedule, weight_decay=1e-4)
     opt_state  = optimizer.init(eqx.filter(model, eqx.is_array))
     train_step = make_train_step(optimizer, sched, T)
-
-    steps_per_epoch = len(train_imgs) // args.batch_size
     key, loader_key = jax.random.split(key)
     loader = make_dataloader(train_imgs, args.batch_size, loader_key)
 
