@@ -32,7 +32,9 @@ Explore these roughly in order of expected impact:
 - ✓ KEPT **Wider time embedding (time_emb_dim 128→256)** (0.027157→0.026774, −0.000383): doubling again at ~32k extra params still helped, though delta is ~half the 64→128 step. Diminishing returns confirmed but width axis now near exhaustion.
   - Follow-on: time_emb_dim 512 — one more doubling to test if returns go negative; low priority
   - Follow-on: 6-layer time MLP — depth vs. width tradeoff; may be more efficient than wider embeddings at this point
-- Additional ResBlock in the encoder or decoder path
+- ✓ KEPT **Second ResBlock at bottleneck (mid2: ResBlock(C*2, C*2, D))** (0.026774→0.026249, −0.000526): doubling bottleneck depth at 14×14 resolution at ~26k extra params gave a consistent small gain. Bottleneck capacity is still a productive axis.
+  - Follow-on: third bottleneck ResBlock (`mid3`) — returns may diminish further but worth one more probe
+  - Follow-on: additional ResBlock in encoder (before stride-2 down) or decoder (after upsample) path — bottleneck success suggests spatial feature processing depth helps broadly
 
 ### 3. Optimizer & Learning Rate
 - ✓ KEPT **AdamW weight_decay=1e-4** (0.0301→0.0295, −0.0006): modest but consistent gain; regularization helps even in short runs.
@@ -49,7 +51,7 @@ Explore these roughly in order of expected impact:
 - **v-prediction** parameterization instead of ε-prediction: model predicts v = √ᾱ·ε − √(1−ᾱ)·x₀
 
 ### 5. Training Tricks
-- ✓ KEPT **Gradient clipping `clip_by_global_norm(1.0)`** (0.027869→0.027157, −0.000713): suppresses early gradient spikes, consistent small gain. Current best: 0.026774.
+- ✓ KEPT **Gradient clipping `clip_by_global_norm(1.0)`** (0.027869→0.027157, −0.000713): suppresses early gradient spikes, consistent small gain. Current best: 0.026249.
   - Follow-on: tighter clip (0.5) — may squeeze out more stability benefit
 - Larger batch size (256 or 512) if memory allows
 
