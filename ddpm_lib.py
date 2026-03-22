@@ -78,9 +78,9 @@ class SmallUNet(eqx.Module):
     norm_out:  eqx.nn.GroupNorm
     out_conv:  eqx.nn.Conv2d
 
-    def __init__(self, base_channels=16, time_emb_dim=64, *, key):
+    def __init__(self, base_channels=16, time_emb_dim=128, *, key):
         C = base_channels
-        D = time_emb_dim * 4
+        D = 256  # fixed projection dim; time_emb_dim controls sinusoidal basis width only
         self.time_emb_dim = time_emb_dim
         ks = iter(jax.random.split(key, 11))
         self.t_dense1  = eqx.nn.Linear(time_emb_dim, D, key=next(ks))
