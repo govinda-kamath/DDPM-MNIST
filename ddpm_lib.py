@@ -74,6 +74,7 @@ class SmallUNet(eqx.Module):
     enc1:      ResBlock
     down:      eqx.nn.Conv2d
     mid:       ResBlock
+    mid2:      ResBlock
     dec1:      ResBlock
     norm_out:  eqx.nn.GroupNorm
     out_conv:  eqx.nn.Conv2d
@@ -82,7 +83,7 @@ class SmallUNet(eqx.Module):
         C = base_channels
         D = 256  # fixed projection dim; time_emb_dim controls sinusoidal basis width only
         self.time_emb_dim = time_emb_dim
-        ks = iter(jax.random.split(key, 11))
+        ks = iter(jax.random.split(key, 12))
         self.t_dense1  = eqx.nn.Linear(time_emb_dim, D, key=next(ks))
         self.t_dense2  = eqx.nn.Linear(D, D, key=next(ks))
         self.t_dense3  = eqx.nn.Linear(D, D, key=next(ks))
@@ -92,6 +93,7 @@ class SmallUNet(eqx.Module):
         self.enc1      = ResBlock(C,     C,     D, key=next(ks))
         self.down      = eqx.nn.Conv2d(C, C*2, 3, stride=2, padding=1, key=next(ks))
         self.mid       = ResBlock(C*2,   C*2,   D, key=next(ks))
+        self.mid2      = ResBlock(C*2,   C*2,   D, key=next(ks))
         self.dec1      = ResBlock(C*2+C, C,     D, key=next(ks))
         self.norm_out  = eqx.nn.GroupNorm(8, C)
         self.out_conv  = eqx.nn.Conv2d(C, 1, 1, key=next(ks))
@@ -102,6 +104,7 @@ class SmallUNet(eqx.Module):
         x  = self.init_conv(x)
         h1 = self.enc1(x, t_emb)
         h  = self.mid(self.down(h1), t_emb)
+        h  = self.mid2(h, t_emb)
         h  = jax.image.resize(h, (h.shape[0], 28, 28), method='nearest')
         h  = self.dec1(jnp.concatenate([h, h1], axis=0), t_emb)
         return self.out_conv(jax.nn.silu(self.norm_out(h)))
