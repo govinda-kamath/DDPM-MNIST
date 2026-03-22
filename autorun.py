@@ -221,7 +221,7 @@ The model is trained on the 60k MNIST training set; validation loss is computed 
 
 ## Your Task
 Propose and implement **exactly ONE** specific, targeted improvement to reduce \
-the MSE training loss. Edit train.py and/or ddpm_lib.py directly using your tools.
+the validation loss. Edit train.py and/or ddpm_lib.py directly using your tools.
 
 Rules:
 - One change only — small, testable hypothesis
