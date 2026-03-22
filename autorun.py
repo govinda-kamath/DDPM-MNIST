@@ -328,6 +328,10 @@ def git_merge(autorun_branch: str, target_branch: str):
 def main():
     args = get_args()
 
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        print("ERROR: ANTHROPIC_API_KEY is not set in the environment.")
+        sys.exit(1)
+
     # Work on a dedicated branch so master stays clean
     branch = f"autorun/{datetime.now().strftime('%Y%m%d-%H%M%S')}"
     git_create_branch(branch)
