@@ -41,8 +41,8 @@ Explore these roughly in order of expected impact:
 - ✓ KEPT **U-Net skip at 14×14 (enc_14: ResBlock(C*2, C*2, D) + dec_14: ResBlock(C*4, C*2, D))** (0.024415→0.024273, −0.000142): completing a proper U-Net skip at the intermediate resolution gave a small positive gain — delta is the smallest yet (~0.00014), but still consistent. The 14×14 skip mirrors the existing 28×28 skip.
 - ✓ KEPT **Second encoder ResBlock at 14×14 (enc_14_2: ResBlock(C*2, C*2, D))** (0.024273→0.023756, −0.000517): adding a second pre-bottleneck layer at 14×14 gave a larger gain than expected (~0.00052 vs ~0.00014 for the skip itself) — notably bigger than the 28×28 enc3/dec3 additions (~0.0003). Deepening from 1→2 layers at this resolution is high-leverage. Running best: 0.023756.
 - ✓ KEPT **Second decoder ResBlock at 14×14 (dec_14_2: ResBlock(C*2, C*2, D))** (0.023756→0.023403, −0.000353): symmetric to enc_14_2; continued the pattern of decoder matching encoder gains. Delta (~0.000353) is smaller than enc_14_2 (~0.000517) but still solid — larger than 28×28 enc3/dec3 additions (~0.0003). Running best: 0.023403.
-  - Follow-on: third encoder ResBlock at 14×14 (enc_14_3) — the 28×28 level went to 3 layers and all helped; 14×14 is now at 2 encoder / 2 decoder, try 3 encoder
-  - Follow-on: third decoder ResBlock at 14×14 (dec_14_3) — symmetric push
+- ✓ KEPT **Third encoder ResBlock at 14×14 (enc_14_3: ResBlock(C*2, C*2, D))** (0.023403→0.023132, −0.000271): matching 28×28's 3-layer encoder depth at 14×14 gave a positive gain (~26k extra params) — delta (~0.000271) is smaller than dec_14_2 (~0.000353) but still above the 28×28 floor. Running best: 0.023132.
+  - Follow-on: third decoder ResBlock at 14×14 (dec_14_3) — symmetric push; decoder has matched or exceeded encoder at every prior step
   - Follow-on: fourth ResBlocks at 28×28 (enc4/dec4) — low priority; returns clearly diminishing (~0.0003/step)
   - Follow-on: fourth bottleneck ResBlock (`mid4`) — low priority; returns clearly diminishing
 
@@ -61,7 +61,7 @@ Explore these roughly in order of expected impact:
 - ✗ FAILED **v-prediction** (0.024415→0.174841, +0.150427): severe regression — the linear β schedule on MNIST is well-conditioned enough that ε-prediction works fine. v-prediction's gradient-balancing benefit only matters in harder regimes (larger images, complex schedules). Direction exhausted.
 
 ### 5. Training Tricks
-- ✓ KEPT **Gradient clipping `clip_by_global_norm(1.0)`** (0.027869→0.027157, −0.000713): suppresses early gradient spikes, consistent small gain. Current best: 0.023403.
+- ✓ KEPT **Gradient clipping `clip_by_global_norm(1.0)`** (0.027869→0.027157, −0.000713): suppresses early gradient spikes, consistent small gain. Current best: 0.023132.
   - Follow-on: tighter clip (0.5) — may squeeze out more stability benefit
 - Larger batch size (256 or 512) if memory allows
 
