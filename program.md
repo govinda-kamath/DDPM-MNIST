@@ -25,7 +25,9 @@ Explore these roughly in order of expected impact:
 ### 2. Model Capacity
 - ✗ FAILED **base_channels 16→32** (crash/timeout): ~4x parameter count likely exceeded memory or time budget; skip 64 as well
 - ✗ FAILED **Self-attention at bottleneck (14×14, 32ch, single-head)** (crash/timeout): adding `SelfAttention2d` at the bottleneck crashed; likely memory/compute overhead of attention on 14×14 maps (196 tokens) with 32 channels is too large for the budget. Try 7×7 spatial resolution instead if re-attempting.
-- Deeper time embedding MLP (extra hidden layer) — low parameter cost, worth trying
+- ✓ KEPT **Deeper time embedding MLP (3-layer: sinusoidal→256→256→256)** (0.035414→0.031385, −0.004029): adding `t_dense3: Linear(256→256)` gave a solid gain at ~65k extra params. Time conditioning is a high-leverage axis.
+  - Follow-on: 4-layer time MLP (add one more 256→256 layer) — if 3 layers helped, 4 may help further at same parameter cost
+  - Follow-on: wider time embedding (time_emb_dim 64→128) — more capacity in the sinusoidal projection itself
 - Additional ResBlock in the encoder or decoder path
 
 ### 3. Optimizer & Learning Rate
