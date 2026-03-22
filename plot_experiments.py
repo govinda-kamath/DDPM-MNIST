@@ -81,6 +81,7 @@ def plot(entries: list[dict], out: str):
     ax.set_xlabel("Experiment #", fontsize=11)
     ax.set_ylabel("Avg training loss (MSE)", fontsize=11)
     ax.set_title("AutoResearch: DDPM-MNIST loss progression", fontsize=13)
+    ax.set_ylim([0.01, 0.05])
     ax.legend(fontsize=10)
     ax.grid(True, alpha=0.3)
 
