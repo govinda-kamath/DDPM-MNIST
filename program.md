@@ -37,9 +37,10 @@ Explore these roughly in order of expected impact:
 - ✓ KEPT **Second decoder ResBlock at 28×28 (dec2: ResBlock(C, C, D))** (0.025906→0.025487, −0.000419): symmetric to enc2, adding depth after skip-connection merge continued the trend — slightly larger gain than enc2 step, suggesting decoder refinement at full resolution is at least as valuable. All four depth additions (mid2, enc2, dec2) have been consistently positive.
 - ✓ KEPT **Third bottleneck ResBlock (mid3: ResBlock(C*2, C*2, D))** (0.025487→0.025035, −0.000453): tripling bottleneck depth continued to help at ~26k extra params — delta slightly smaller than mid2 (−0.000526) but still positive. Bottleneck depth has now been probed to three layers with diminishing but consistently positive returns.
 - ✓ KEPT **Third encoder ResBlock at 28×28 (enc3: ResBlock(C, C, D))** (0.025035→0.024740, −0.000295): tripling encoder depth before downsampling continued the trend at ~26k extra params — delta smaller than dec2 (−0.000419) but consistently positive.
-- ✓ KEPT **Third decoder ResBlock at 28×28 (dec3: ResBlock(C, C, D))** (0.024740→0.024415, −0.000325): tripling decoder depth after skip-connection merge continued the trend at ~26k extra params — delta (−0.000325) slightly larger than enc3 (−0.000295), consistent with dec matching or exceeding enc at each step. Running best: 0.024415.
-  - Follow-on: depth at 14×14 resolution (enc/dec around the downsample) — unexplored resolution; may be higher leverage than more 28×28 layers
-  - Follow-on: fourth ResBlocks at 28×28 (enc4/dec4) — low priority; returns are clearly diminishing (~0.0003/step now)
+- ✓ KEPT **Third decoder ResBlock at 28×28 (dec3: ResBlock(C, C, D))** (0.024740→0.024415, −0.000325): tripling decoder depth after skip-connection merge continued the trend at ~26k extra params — delta (−0.000325) slightly larger than enc3 (−0.000295), consistent with dec matching or exceeding enc at each step.
+- ✓ KEPT **U-Net skip at 14×14 (enc_14: ResBlock(C*2, C*2, D) + dec_14: ResBlock(C*4, C*2, D))** (0.024415→0.024273, −0.000142): completing a proper U-Net skip at the intermediate resolution gave a small positive gain — delta is the smallest yet (~0.00014), but still consistent. The 14×14 skip mirrors the existing 28×28 skip. Running best: 0.024273.
+  - Follow-on: second ResBlock at 14×14 (enc_14_2 / dec_14_2) — depth at this resolution is now only 1 layer vs. 3 at 28×28; may yield more gain than another 28×28 layer
+  - Follow-on: fourth ResBlocks at 28×28 (enc4/dec4) — low priority; returns are clearly diminishing (~0.0003/step)
   - Follow-on: fourth bottleneck ResBlock (`mid4`) — low priority; returns clearly diminishing
 
 ### 3. Optimizer & Learning Rate
@@ -57,7 +58,7 @@ Explore these roughly in order of expected impact:
 - ✗ FAILED **v-prediction** (0.024415→0.174841, +0.150427): severe regression — the linear β schedule on MNIST is well-conditioned enough that ε-prediction works fine. v-prediction's gradient-balancing benefit only matters in harder regimes (larger images, complex schedules). Direction exhausted.
 
 ### 5. Training Tricks
-- ✓ KEPT **Gradient clipping `clip_by_global_norm(1.0)`** (0.027869→0.027157, −0.000713): suppresses early gradient spikes, consistent small gain. Current best: 0.024415.
+- ✓ KEPT **Gradient clipping `clip_by_global_norm(1.0)`** (0.027869→0.027157, −0.000713): suppresses early gradient spikes, consistent small gain. Current best: 0.024273.
   - Follow-on: tighter clip (0.5) — may squeeze out more stability benefit
 - Larger batch size (256 or 512) if memory allows
 

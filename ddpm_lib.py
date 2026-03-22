@@ -76,6 +76,7 @@ class SmallUNet(eqx.Module):
     enc3:      ResBlock
     down:      eqx.nn.Conv2d
     enc_14:    ResBlock
+    enc_14_2:  ResBlock
     mid:       ResBlock
     mid2:      ResBlock
     mid3:      ResBlock
@@ -90,7 +91,7 @@ class SmallUNet(eqx.Module):
         C = base_channels
         D = 256  # fixed projection dim; time_emb_dim controls sinusoidal basis width only
         self.time_emb_dim = time_emb_dim
-        ks = iter(jax.random.split(key, 19))
+        ks = iter(jax.random.split(key, 20))
         self.t_dense1  = eqx.nn.Linear(time_emb_dim, D, key=next(ks))
         self.t_dense2  = eqx.nn.Linear(D, D, key=next(ks))
         self.t_dense3  = eqx.nn.Linear(D, D, key=next(ks))
@@ -102,6 +103,7 @@ class SmallUNet(eqx.Module):
         self.enc3      = ResBlock(C,     C,     D, key=next(ks))
         self.down      = eqx.nn.Conv2d(C, C*2, 3, stride=2, padding=1, key=next(ks))
         self.enc_14    = ResBlock(C*2,   C*2,   D, key=next(ks))
+        self.enc_14_2  = ResBlock(C*2,   C*2,   D, key=next(ks))
         self.mid       = ResBlock(C*2,   C*2,   D, key=next(ks))
         self.mid2      = ResBlock(C*2,   C*2,   D, key=next(ks))
         self.mid3      = ResBlock(C*2,   C*2,   D, key=next(ks))
@@ -117,7 +119,7 @@ class SmallUNet(eqx.Module):
         t_emb = self.t_dense5(jax.nn.silu(self.t_dense4(jax.nn.silu(self.t_dense3(jax.nn.silu(self.t_dense2(jax.nn.silu(self.t_dense1(t_emb)))))))))
         x  = self.init_conv(x)
         h1 = self.enc3(self.enc2(self.enc1(x, t_emb), t_emb), t_emb)
-        h2 = self.enc_14(self.down(h1), t_emb)
+        h2 = self.enc_14_2(self.enc_14(self.down(h1), t_emb), t_emb)
         h  = self.mid(h2, t_emb)
         h  = self.mid2(h, t_emb)
         h  = self.mid3(h, t_emb)
