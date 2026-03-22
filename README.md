@@ -78,6 +78,8 @@ Each iteration:
 
 Architecture changes that make a checkpoint incompatible are handled gracefully via `warm_start.py`, which transfers matching weights and randomly initialises new or resized layers.
 
+The loop invokes the `claude` CLI as a subprocess. It picks up your Claude credentials from the environment (i.e. `ANTHROPIC_API_KEY` must be set before running).
+
 ```bash
 # Quick test (1 experiment, 1 epoch per eval)
 python autorun.py --eval-epochs 1 --n-experiments 1
@@ -108,9 +110,9 @@ Generates a figure showing loss progression across experiments — kept changes 
 
 ## Example Output
 
-After 500 epochs, the model generates handwritten digit images from pure Gaussian noise via the reverse diffusion chain.
+After 500 epochs, the model generates handwritten digit images from pure Gaussian noise via the reverse diffusion chain (before AutoResearch).
 
-![DDPM samples after 500 epochs](samples.png)
+![DDPM samples before AutoResearch](samples_before_autorun.png)
 
 ## AutoResearch Results
 
