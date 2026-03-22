@@ -186,7 +186,10 @@ def main():
         ],
         boundaries=[warmup_steps],
     )
-    optimizer  = optax.adamw(lr_schedule, weight_decay=1e-4)
+    optimizer  = optax.chain(
+        optax.clip_by_global_norm(1.0),
+        optax.adamw(lr_schedule, weight_decay=1e-4),
+    )
     opt_state  = optimizer.init(eqx.filter(model, eqx.is_array))
     train_step = make_train_step(optimizer, sched, T)
     key, loader_key = jax.random.split(key)

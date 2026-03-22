@@ -27,9 +27,10 @@ Explore these roughly in order of expected impact:
 - ✗ FAILED **Self-attention at bottleneck (14×14, 32ch, single-head)** (crash/timeout): adding `SelfAttention2d` at the bottleneck crashed; likely memory/compute overhead of attention on 14×14 maps (196 tokens) with 32 channels is too large for the budget. Try 7×7 spatial resolution instead if re-attempting.
 - ✓ KEPT **Deeper time embedding MLP (3-layer: sinusoidal→256→256→256)** (0.035414→0.031385, −0.004029): adding `t_dense3: Linear(256→256)` gave a solid gain at ~65k extra params. Time conditioning is a high-leverage axis.
 - ✓ KEPT **4-layer time MLP (sinusoidal→256→256→256→256)** (0.031385→0.029530, −0.001855): another ~65k params, consistent improvement — deeper time MLPs keep helping.
-- ✓ KEPT **5-layer time MLP (sinusoidal→256→256→256→256→256)** (0.029530→0.028565, −0.000965): gains are diminishing (~1/2 the delta of the 4-layer step) but still positive. Current best: 0.028565.
-  - Follow-on: 6-layer time MLP — returns shrinking; try only if no higher-priority direction is available
-  - Follow-on: **wider time embedding (time_emb_dim 64→128)** — more capacity in the sinusoidal projection itself; may be more efficient than going deeper
+- ✓ KEPT **5-layer time MLP (sinusoidal→256→256→256→256→256)** (0.029530→0.028565, −0.000965): gains are diminishing (~1/2 the delta of the 4-layer step) but still positive.
+- ✓ KEPT **Wider time embedding (time_emb_dim 64→128, MLP hidden fixed at 256)** (0.028565→0.027869, −0.000696): more sinusoidal frequency components gave another solid gain at only ~16k extra params. Returns still positive but slowing. Current best: 0.027869.
+  - Follow-on: time_emb_dim 128→256 — doubling again costs ~32k more params in t_dense1; diminishing returns likely but worth one more step
+  - Follow-on: 6-layer time MLP — depth vs. width tradeoff; lower priority now that width was validated
 - Additional ResBlock in the encoder or decoder path
 
 ### 3. Optimizer & Learning Rate
