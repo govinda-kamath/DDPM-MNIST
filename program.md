@@ -28,7 +28,7 @@ Explore these roughly in order of expected impact:
 - ✓ KEPT **Deeper time embedding MLP (3-layer: sinusoidal→256→256→256)** (0.035414→0.031385, −0.004029): adding `t_dense3: Linear(256→256)` gave a solid gain at ~65k extra params. Time conditioning is a high-leverage axis.
 - ✓ KEPT **4-layer time MLP (sinusoidal→256→256→256→256)** (0.031385→0.029530, −0.001855): another ~65k params, consistent improvement — deeper time MLPs keep helping.
 - ✓ KEPT **5-layer time MLP (sinusoidal→256→256→256→256→256)** (0.029530→0.028565, −0.000965): gains are diminishing (~1/2 the delta of the 4-layer step) but still positive.
-- ✓ KEPT **Wider time embedding (time_emb_dim 64→128, MLP hidden fixed at 256)** (0.028565→0.027869, −0.000696): more sinusoidal frequency components gave another solid gain at only ~16k extra params. Returns still positive but slowing. Current best: 0.027869.
+- ✓ KEPT **Wider time embedding (time_emb_dim 64→128, MLP hidden fixed at 256)** (0.028565→0.027869, −0.000696): more sinusoidal frequency components gave another solid gain at only ~16k extra params. Returns still positive but slowing.
   - Follow-on: time_emb_dim 128→256 — doubling again costs ~32k more params in t_dense1; diminishing returns likely but worth one more step
   - Follow-on: 6-layer time MLP — depth vs. width tradeoff; lower priority now that width was validated
 - Additional ResBlock in the encoder or decoder path
@@ -48,7 +48,8 @@ Explore these roughly in order of expected impact:
 - **v-prediction** parameterization instead of ε-prediction: model predicts v = √ᾱ·ε − √(1−ᾱ)·x₀
 
 ### 5. Training Tricks
-- **Gradient clipping** (e.g. global norm ≤ 1.0) — can stabilize early training
+- ✓ KEPT **Gradient clipping `clip_by_global_norm(1.0)`** (0.027869→0.027157, −0.000713): suppresses early gradient spikes, consistent small gain. Current best: 0.027157.
+  - Follow-on: tighter clip (0.5) — may squeeze out more stability benefit
 - Larger batch size (256 or 512) if memory allows
 
 ## Strategy Notes
