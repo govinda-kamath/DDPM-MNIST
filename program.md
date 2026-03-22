@@ -35,8 +35,10 @@ Explore these roughly in order of expected impact:
 - ✓ KEPT **Second ResBlock at bottleneck (mid2: ResBlock(C*2, C*2, D))** (0.026774→0.026249, −0.000526): doubling bottleneck depth at 14×14 resolution at ~26k extra params gave a consistent small gain. Bottleneck capacity is still a productive axis.
   - Follow-on: third bottleneck ResBlock (`mid3`) — returns may diminish further but worth one more probe
 - ✓ KEPT **Second encoder ResBlock at 28×28 (enc2: ResBlock(C, C, D))** (0.026249→0.025906, −0.000343): adding depth before the stride-2 downsample gave a small but consistent gain (~26k extra params). Full-resolution encoder depth helps skip connection quality. Returns are diminishing but positive across all depth additions.
-  - Follow-on: second decoder ResBlock at 28×28 (after upsample, before output) — symmetric to enc2; decoder depth may yield similar benefit
+- ✓ KEPT **Second decoder ResBlock at 28×28 (dec2: ResBlock(C, C, D))** (0.025906→0.025487, −0.000419): symmetric to enc2, adding depth after skip-connection merge continued the trend — slightly larger gain than enc2 step, suggesting decoder refinement at full resolution is at least as valuable. All four depth additions (mid2, enc2, dec2) have been consistently positive.
   - Follow-on: third bottleneck ResBlock (`mid3`) — still worth one probe given mid2 success
+  - Follow-on: third encoder ResBlock at 28×28 (`enc3`) — diminishing returns expected but pattern has held so far
+  - Follow-on: third decoder ResBlock at 28×28 (`dec3`) — symmetric probe
 
 ### 3. Optimizer & Learning Rate
 - ✓ KEPT **AdamW weight_decay=1e-4** (0.0301→0.0295, −0.0006): modest but consistent gain; regularization helps even in short runs.
@@ -53,7 +55,7 @@ Explore these roughly in order of expected impact:
 - **v-prediction** parameterization instead of ε-prediction: model predicts v = √ᾱ·ε − √(1−ᾱ)·x₀
 
 ### 5. Training Tricks
-- ✓ KEPT **Gradient clipping `clip_by_global_norm(1.0)`** (0.027869→0.027157, −0.000713): suppresses early gradient spikes, consistent small gain. Current best: 0.025906.
+- ✓ KEPT **Gradient clipping `clip_by_global_norm(1.0)`** (0.027869→0.027157, −0.000713): suppresses early gradient spikes, consistent small gain. Current best: 0.025487.
   - Follow-on: tighter clip (0.5) — may squeeze out more stability benefit
 - Larger batch size (256 or 512) if memory allows
 
