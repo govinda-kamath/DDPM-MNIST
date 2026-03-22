@@ -23,7 +23,6 @@ import shutil
 import subprocess
 import sys
 from datetime import datetime
-from pathlib import Path
 
 MODIFIABLE_FILES = ["train.py", "ddpm_lib.py"]
 BACKUP_SUFFIX    = ".autorun_backup"
@@ -87,14 +86,19 @@ def _make_warm_checkpoint() -> bool:
     print(f"[eval]  {result.stdout.strip()}")
     return result.returncode == 0 and os.path.exists(WARM_CKPT_PATH)
 
+LOSS_OUT_PATH = "/tmp/autorun_tb/autorun_loss.json"
+
 def _run_training(eval_epochs: int, timeout: int,
                   resume: str | None) -> tuple[float | None, str]:
+    if os.path.exists(LOSS_OUT_PATH):
+        os.remove(LOSS_OUT_PATH)
     cmd = [
         sys.executable, "train.py",
         "--epochs",     str(eval_epochs),
         "--tb-dir",     "/tmp/autorun_tb",
         "--ckpt-dir",   "/tmp/autorun_ckpts",
         "--keep-ckpts", "1",
+        "--loss-out",   LOSS_OUT_PATH,
     ]
     if resume:
         cmd += ["--resume", resume]
@@ -106,8 +110,11 @@ def _run_training(eval_epochs: int, timeout: int,
             cwd=os.getcwd(), env=env
         )
         output = result.stdout + result.stderr
-        losses = re.findall(r"val loss (\S+)", output)
-        return (float(losses[-1]) if losses else None), output
+        if os.path.exists(LOSS_OUT_PATH):
+            with open(LOSS_OUT_PATH) as f:
+                losses = json.load(f)
+            return losses["best_val_loss"], output
+        return None, output
     except subprocess.TimeoutExpired:
         return None, "TIMEOUT"
     except Exception as e:
@@ -201,7 +208,7 @@ You are an autonomous ML researcher running experiments on a DDPM \
 {program_md}
 
 ## Current Performance
-Baseline validation loss (last epoch of a {eval_epochs}-epoch run, 10k MNIST test set): {current_loss:.8g}
+Baseline validation loss (best across a {eval_epochs}-epoch run, 10k MNIST test set): {current_loss:.8g}
 The model is trained on the 60k MNIST training set; validation loss is computed on the held-out 10k test set.
 
 ## Experiment History (recent)
@@ -387,6 +394,7 @@ def main():
             print(f"[eval]  FAILED  output tail:\n{new_out[-500:]}")
 
         kept = new_loss is not None and new_loss < best_loss
+        experiment_baseline = best_loss
 
         if kept:
             print("[keep]  Improvement kept ✓")
@@ -407,14 +415,14 @@ def main():
             "timestamp":     datetime.now().isoformat(),
             "experiment":    i + 1,
             "description":   description,
-            "baseline_loss": best_loss if kept else baseline_loss,
+            "baseline_loss": experiment_baseline,
             "new_loss":      new_loss,
             "kept":          kept,
         })
 
         # Update program.md with what was learned
         print("[prog]  Reconciling program.md ...")
-        reconcile_program(description, kept, baseline_loss, new_loss, best_loss)
+        reconcile_program(description, kept, experiment_baseline, new_loss, best_loss)
 
         # Re-read updated program.md for next iteration
         program_md = read_file("program.md")

@@ -10,6 +10,7 @@ TensorBoard:
     tensorboard --logdir ./runs
 """
 
+import json
 import os
 import gzip
 import glob
@@ -40,6 +41,7 @@ def get_args():
     p.add_argument("--data-dir",      type=str,   default="./mnist_data")
     p.add_argument("--tb-dir",        type=str,   default="./runs")
     p.add_argument("--resume",        type=str,   default=None, help="path to checkpoint .eqx to resume from")
+    p.add_argument("--loss-out",      type=str,   default=None, help="write best train/val loss as JSON to this file")
     return p.parse_args()
 
 
@@ -190,9 +192,10 @@ def main():
     key, loader_key = jax.random.split(key)
     loader = make_dataloader(train_imgs, args.batch_size, loader_key)
 
-    writer      = SummaryWriter(log_dir=args.tb_dir)
-    best_loss   = float("inf")
-    global_step = start_epoch * steps_per_epoch
+    writer          = SummaryWriter(log_dir=args.tb_dir)
+    best_val_loss   = float("inf")
+    best_train_loss = float("inf")
+    global_step     = start_epoch * steps_per_epoch
 
     for epoch in range(start_epoch, args.epochs):
         epoch_loss = 0.0
@@ -213,9 +216,10 @@ def main():
 
         avg_loss = epoch_loss / steps_per_epoch
         key, val_key = jax.random.split(key)
-        val_loss  = compute_val_loss(model, val_imgs, sched, T, args.batch_size, val_key)
-        is_best   = val_loss < best_loss
-        best_loss = min(best_loss, val_loss)
+        val_loss        = compute_val_loss(model, val_imgs, sched, T, args.batch_size, val_key)
+        is_best         = val_loss < best_val_loss
+        best_val_loss   = min(best_val_loss, val_loss)
+        best_train_loss = min(best_train_loss, avg_loss)
 
         writer.add_scalar("loss/train_epoch", avg_loss, epoch + 1)
         writer.add_scalar("loss/val",         val_loss, epoch + 1)
@@ -233,6 +237,9 @@ def main():
     writer.close()
     print("Training complete.")
     print(f"Best checkpoint: {os.path.join(args.ckpt_dir, 'model_best.eqx')}")
+    if args.loss_out:
+        with open(args.loss_out, "w") as f:
+            json.dump({"best_train_loss": best_train_loss, "best_val_loss": best_val_loss}, f)
 
 
 if __name__ == "__main__":

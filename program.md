@@ -2,8 +2,8 @@
 
 ## Goal
 
-Minimize the MSE training loss (noise prediction error) on MNIST.
-The metric is the **average loss of the final epoch** in a short fixed-length training run.
+Minimize the MSE validation loss (noise prediction error) on MNIST.
+The metric is the **best validation loss across epochs** in a short fixed-length training run.
 Lower is better.
 
 ## Current Baseline Architecture
